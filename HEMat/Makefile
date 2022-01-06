@@ -5,9 +5,9 @@
 ###############################################################
 
 PREFIX = $(HOME)
-CC = g++
+CC = c++
 AR = ar
-CFLAGS= -g -O2 -std=c++11 -pthread
+CFLAGS= -g -std=c++11 -pthread
 
 # path to the library files
 LDLIBS  = -L/usr/local/lib -lntl -lgmp -lm  
@@ -53,7 +53,7 @@ new:
 ###############################################################
 
 test:
-	g++ -std=c++11 -O2 -I/usr/local/include -pthread main.cpp ../src/libheaan.a libHEMat.a -o foo -L/usr/local/lib -lntl -lgmp -lm
+	c++ -std=c++11 -g main.cpp -o foo -I/usr/local/include libHEMat.a ../src/libheaan.a -L/usr/local/lib -lntl -lgmp -lm -pthread
 
 
 obj: $(OBJ)

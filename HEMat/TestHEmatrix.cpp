@@ -634,11 +634,12 @@ void TestHEmatrix::testMult(long nrows) {
     
     for(long i = 0; i < nrows ; i++){
         for(long j = 0; j < ncols; j++){
-            Amat[i][j]= to_RR((((i* 2 + ncols * j)%3)/10.0));
-            Bmat[i][j]= to_RR((((i*ncols + j )%3)/10.0));
+            Amat[i][j]= to_RR((((i* 2 + ncols * j)%3) / 1.0));
+            Bmat[i][j]= to_RR((((i*ncols + j )%3) / 1.0));
         }
     }
-    
+    cout << "Amat: " << Amat << endl;
+    cout << "Bmat: " << Bmat << endl;
     /*---------------------------------------*/
     //  Encryption
     /*---------------------------------------*/

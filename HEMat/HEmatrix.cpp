@@ -599,14 +599,6 @@ void HEmatrix::shiftBycols_Parallel(Ciphertext& res, Ciphertext& ctxt, long k, Z
 //!!         Initpoly[2] (constant polynomials for Bmat)
 
 void HEmatrix::genMultPoly(ZZX**& Initpoly){
-    bool btmp;
-    if((HEmatpar.dim % HEmatpar.sqrdim) == 0){
-        btmp = false;
-    }
-    else{
-        btmp = true;
-    }
-    long ibound = (long) ceil((double) HEmatpar.dim/HEmatpar.sqrdim); //! number of "i"
     
     Initpoly = new ZZX*[3];
     
@@ -618,38 +610,29 @@ void HEmatrix::genMultPoly(ZZX**& Initpoly){
     complex<double>** fvals2   = new complex<double>*[HEmatpar.dim];
     complex<double>** bvals    = new complex<double>*[HEmatpar.dim];
 
-    NTL_EXEC_RANGE(ibound, first, last);
-    for(int i = first; i < last; ++i){
-        long jbound = HEmatpar.sqrdim;
-        if ((btmp)&&(i == ibound - 1)){
-            jbound = (HEmatpar.dim % HEmatpar.sqrdim);
-        }
+    for(long k = 0; k < HEmatpar.dim; ++k){
+        fvals1[k] = new complex<double>[HEmatpar.nslots];
+        fvals2[k] = new complex<double>[HEmatpar.nslots];
+        bvals[k] = new complex<double>[HEmatpar.nslots];
         
-        for(long j = 0; j < jbound; ++j){
-            long k = i * HEmatpar.sqrdim + j;
-            fvals1[k] = new complex<double>[HEmatpar.nslots];
-            fvals2[k] = new complex<double>[HEmatpar.nslots];
-            bvals[k] = new complex<double>[HEmatpar.nslots];
-            
-            for(long l = 0; l < HEmatpar.dim - k; ++l){
-                fvals1[k][k * HEmatpar.dim + l].real(1.0);
-            }
-            msgleftRotate(fvals2[k], fvals1[k], HEmatpar.nslots, k*(2*HEmatpar.dim - 1));
-            
-            msgrightRotateAndEqual(fvals1[k], HEmatpar.nslots, i*HEmatpar.sqrdim);
-            Initpoly[0][k] = scheme.context.encode(fvals1[k], HEmatpar.nslots, HEmatpar.cBits);
-        
-            msgleftRotateAndEqual(fvals2[k], HEmatpar.nslots, i*HEmatpar.sqrdim);
-            Initpoly[1][k] = scheme.context.encode(fvals2[k], HEmatpar.nslots, HEmatpar.cBits);
-            
-            for(long l = 0; l < HEmatpar.dim; ++l){
-                bvals[k][l * HEmatpar.dim + k].real(1.0);
-            }
-            msgrightRotateAndEqual(bvals[k], HEmatpar.nslots, i*HEmatpar.sqrdim*HEmatpar.dim);
-            Initpoly[2][k] = scheme.context.encode(bvals[k], HEmatpar.nslots, HEmatpar.cBits);
+        for(long l = 0; l < HEmatpar.dim - k; ++l){
+            fvals1[k][k * HEmatpar.dim + l].real(1.0);
         }
+        msgrightRotate(fvals2[k], fvals1[k], HEmatpar.nslots, k * (HEmatpar.dim1 * HEmatpar.dim1));
+        for(long l = 0; l < HEmatpar.dim; ++l)
+        {
+            bvals[k][l * HEmatpar.dim + k].real(1.0);
+        }
+        for(long i = 0; i < HEmatpar.nslots; ++i)
+        {
+            cout << "fvals1[" << i << "]" << fvals1[k][i] << endl;
+            cout << "fvals2[" << i << "]" << fvals2[k][i] << endl;
+            cout << "bvals[" << i << "]" << bvals[k][i] << endl;
+        }
+        Initpoly[0][k] = scheme.context.encode(fvals1[k], HEmatpar.nslots, HEmatpar.cBits);
+        Initpoly[1][k] = scheme.context.encode(fvals2[k], HEmatpar.nslots, HEmatpar.cBits);
+        Initpoly[2][k] = scheme.context.encode(bvals[k], HEmatpar.nslots, HEmatpar.cBits);
     }
-    NTL_EXEC_RANGE_END;
 
     delete[] fvals1;
     delete[] fvals2;
