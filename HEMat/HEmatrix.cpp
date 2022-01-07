@@ -623,15 +623,42 @@ void HEmatrix::genMultPoly(ZZX**& Initpoly){
         {
             bvals[k][l * HEmatpar.dim + k].real(1.0);
         }
-        for(long i = 0; i < HEmatpar.nslots; ++i)
-        {
-            cout << "fvals1[" << i << "]" << fvals1[k][i] << endl;
-            cout << "fvals2[" << i << "]" << fvals2[k][i] << endl;
-            cout << "bvals[" << i << "]" << bvals[k][i] << endl;
-        }
+
         Initpoly[0][k] = scheme.context.encode(fvals1[k], HEmatpar.nslots, HEmatpar.cBits);
         Initpoly[1][k] = scheme.context.encode(fvals2[k], HEmatpar.nslots, HEmatpar.cBits);
         Initpoly[2][k] = scheme.context.encode(bvals[k], HEmatpar.nslots, HEmatpar.cBits);
+    }
+    cout << "fvals1 : " << endl;
+    for(long k = 0; k < HEmatpar.dim; ++k)
+    {
+        cout << k << " : ";
+        for(long i = 0; i < HEmatpar.nslots; i++)
+        {
+            cout << fvals1[k][i] << " ";
+        }
+        cout << endl;
+    }
+
+    cout << "fvals2 : " << endl;
+    for(long k = 0; k < HEmatpar.dim; ++k)
+    {
+        cout << k << " : ";
+        for(long i = 0; i < HEmatpar.nslots; i++)
+        {
+            cout << fvals2[k][i] << " ";
+        }
+        cout << endl;
+    }
+
+    cout << "bvals : " << endl;
+    for(long k = 0; k < HEmatpar.dim; ++k)
+    {
+        cout << k << " : ";
+        for(long i = 0; i < HEmatpar.nslots; i++)
+        {
+            cout << bvals[k][i] << " ";
+        }
+        cout << endl;
     }
 
     delete[] fvals1;
@@ -640,28 +667,18 @@ void HEmatrix::genMultPoly(ZZX**& Initpoly){
 }
 
 void HEmatrix::genInitCtxt(Ciphertext& resA, Ciphertext& resB, Ciphertext& Actxt, Ciphertext& Bctxt, ZZX**& poly){
-    bool btmp;
-    if((HEmatpar.dim % HEmatpar.sqrdim) == 0){ btmp = false; }    //! all the terms have the same numbers
-    else{ btmp = true; }
-    long ibound = (long) ceil((double)HEmatpar.dim/HEmatpar.sqrdim); //! number of "i"
     
-    Ciphertext** Actemp1 = new Ciphertext*[HEmatpar.sqrdim]; //! update right polynomial
-    Ciphertext** Actemp2 = new Ciphertext*[HEmatpar.sqrdim]; //! update right polynomial
-    Ciphertext** Bctemp = new Ciphertext*[HEmatpar.sqrdim];
-    
-    for(long i = 0; i < HEmatpar.sqrdim; ++i){
-        Actemp1[i] = new Ciphertext[HEmatpar.sqrdim];
-        Actemp2[i] = new Ciphertext[HEmatpar.sqrdim];
-        Bctemp[i]  = new Ciphertext[HEmatpar.sqrdim];
-    }
-    
+    Ciphertext* Actemp1 = new Ciphertext[HEmatpar.dim + 1]; //! update right polynomial
+    Ciphertext* Actemp2 = new Ciphertext[HEmatpar.dim + 1]; //! update right polynomial
+    Ciphertext* Bctemp = new Ciphertext[HEmatpar.dim + 1];
+
     //! 0. Store some ciphertexts (0,1,...,d-1), (,d+1,...2d-1)
     //! v, lrho(v;1), lrho(v;2), ..., lrho(v;d-1)
     //! -, rrho(v;1), rrho(v;2), ..., rrho(v;d-1)
     
-    Ciphertext* BaByctxt1  = new Ciphertext[HEmatpar.dim];
-    Ciphertext* BaByctxt2  = new Ciphertext[HEmatpar.dim];
-    Ciphertext* BaByctxtB  = new Ciphertext[HEmatpar.dim];
+    Ciphertext* BaByctxt1  = new Ciphertext[HEmatpar.dim + 1];
+    Ciphertext* BaByctxt2  = new Ciphertext[HEmatpar.dim + 1];
+    Ciphertext* BaByctxtB  = new Ciphertext[HEmatpar.dim + 1];
     
     BaByctxt1[0] = Actxt;
     BaByctxt2[0] = Actxt;
@@ -671,77 +688,27 @@ void HEmatrix::genInitCtxt(Ciphertext& resA, Ciphertext& resB, Ciphertext& Actxt
     resA = scheme.multByPoly(BaByctxt1[0], poly[0][0], HEmatpar.cBits);
     resB = scheme.multByPoly(BaByctxtB[0], poly[2][0], HEmatpar.cBits);
     
-    NTL_EXEC_RANGE(HEmatpar.sqrdim - 1, first, last);
-    for(long j = first; j < last; ++j){
-        long j1 = (j + 1);
-        BaByctxt1[j1] = scheme.leftRotate(Actxt, j1);
-        BaByctxt2[j1] = scheme.rightRotate(Actxt, j1);
-        BaByctxtB[j1] = scheme.leftRotate(Bctxt, (j1)*HEmatpar.dim);
+    for(long j = 1; j < HEmatpar.dim; ++j)
+    {
         
-        Actemp1[0][j1] = scheme.multByPoly(BaByctxt1[j1], poly[0][j1], HEmatpar.cBits);
-        Actemp2[0][j1] = scheme.multByPoly(BaByctxt2[j1], poly[1][j1], HEmatpar.cBits);
-        Bctemp[0][j1]  = scheme.multByPoly(BaByctxtB[j1], poly[2][j1], HEmatpar.cBits);
+        BaByctxt1[j] = scheme.leftRotate(Actxt, j);
+        BaByctxt2[j] = scheme.rightRotate(Actxt, j);
+        BaByctxtB[j] = scheme.leftRotate(Bctxt, (j) * HEmatpar.dim);
         
-        scheme.addAndEqual(Actemp1[0][j1], Actemp2[0][j1]);
+        Actemp1[j] = scheme.multByPoly(BaByctxt1[j], poly[0][j], HEmatpar.cBits);
+        Actemp2[j] = scheme.multByPoly(BaByctxt2[j], poly[1][j], HEmatpar.cBits);
+        Bctemp[j]  = scheme.multByPoly(BaByctxtB[j], poly[2][j], HEmatpar.cBits);
+        
+        scheme.addAndEqual(Actemp1[j], Actemp2[j]);
     }
-    NTL_EXEC_RANGE_END;
+    for(long j = 1; j < HEmatpar.dim; ++j)
+    {
+        scheme.addAndEqual(resA, Actemp1[j]);
+        scheme.addAndEqual(resB, Bctemp[j]);
+    }
 
-    for(long j = 1; j < HEmatpar.sqrdim; ++j){
-        scheme.addAndEqual(resA, Actemp1[0][j]);
-        scheme.addAndEqual(resB, Bctemp[0][j]);
-    }
-    
-    Ciphertext* Actxts1 = new Ciphertext[HEmatpar.dim];
-    Ciphertext* Actxts2 = new Ciphertext[HEmatpar.dim];
-    Ciphertext* Bctxts  = new Ciphertext[HEmatpar.dim];
-    
-    NTL_EXEC_RANGE(HEmatpar.dim - HEmatpar.sqrdim, first, last);
-    for(long k = first; k < last; ++k){
-        long k1 = (k + HEmatpar.sqrdim);
-        long i = (long)(k1 / HEmatpar.sqrdim);
-        long j = (long)(k1 % HEmatpar.sqrdim);
-        
-        Actxts1[k1] = scheme.multByPoly(BaByctxt1[j], poly[0][k1], HEmatpar.cBits);
-        Actxts2[k1] = scheme.multByPoly(BaByctxt2[j], poly[1][k1], HEmatpar.cBits);
-        Bctxts[k1]  = scheme.multByPoly(BaByctxtB[j], poly[2][k1], HEmatpar.cBits);
-        
-    }
-    NTL_EXEC_RANGE_END;
-    
-    NTL_EXEC_RANGE(ibound - 1, first, last);
-    for(long k = first; k < last; ++k){
-        long k1 = (k+1) * HEmatpar.sqrdim;
-        long jbound = HEmatpar.sqrdim;
-        if((btmp) && (k == ibound - 2)){
-            jbound = (HEmatpar.dim % HEmatpar.sqrdim);
-        }
-        for(long j = 1; j < jbound; ++j){
-            scheme.addAndEqual(Actxts1[k1], Actxts1[k1+j]);
-            scheme.addAndEqual(Actxts2[k1], Actxts2[k1+j]);
-            scheme.addAndEqual(Bctxts[k1], Bctxts[k1+j]);
-        }
-        
-        long k2 = (k1 - (k1 % HEmatpar.sqrdim));
-        scheme.leftRotateAndEqual(Actxts1[k1], k2);
-        scheme.rightRotateAndEqual(Actxts2[k1], k2);
-        scheme.leftRotateAndEqual(Bctxts[k1], k2 * HEmatpar.dim);
-        
-        scheme.addAndEqual(Actxts1[k1], Actxts2[k1]);
-    }
-    NTL_EXEC_RANGE_END;
-    
-    for(long k = 1; k < ibound; ++k){
-        long k1 = k * HEmatpar.sqrdim;
-        scheme.addAndEqual(resA, Actxts1[k1]);
-        scheme.addAndEqual(resB, Bctxts[k1]);
-    }
-    
     scheme.reScaleByAndEqual(resA, HEmatpar.cBits);
     scheme.reScaleByAndEqual(resB, HEmatpar.cBits);
-
-    delete[] Actxts1;
-    delete[] Actxts2;
-    delete[] Bctxts;
     
     delete[] Actemp1;
     delete[] Actemp2;
@@ -821,6 +788,16 @@ void HEmatrix::HEmatmul(Ciphertext& res, Ciphertext& Actxt, Ciphertext& Bctxt, Z
     //! 1. Generate the initial ciphertexts
     genInitCtxt(Actxts[0], Bctxts[0], Actxt, Bctxt, Initpoly);
 
+    mat_RR resA, resB;
+    decryptRmat(resA, Actxts[0]);
+    decryptRmat(resB, Bctxts[0]);
+
+    cout << "Step 1 : " << endl;
+    cout << "Amat : " << endl;
+    cout << resA << endl;
+    cout << "Bmat : " << endl;
+    cout << resB << endl;
+
     //! 2. Column shifting of Actxt[0], Row shifting of Bctxt[0]
     NTL_EXEC_RANGE(HEmatpar.dim1, first, last);
     for(int i = first; i < last; ++i){
@@ -837,68 +814,65 @@ void HEmatrix::HEmatmul(Ciphertext& res, Ciphertext& Actxt, Ciphertext& Bctxt, Z
     delete[] Bctxts;
 }
 
-void HEmatrix::genMultPoly_Parallel(ZZX**& Initpoly){
-    long btmp;
-    if((HEmatpar.dim % HEmatpar.sqrdim) == 0){ btmp = false; }    //! all the terms have the same numbers
-    else{ btmp = true; }
-    long ibound = (long) ceil((double)HEmatpar.dim/HEmatpar.sqrdim); //! number of "i"
-
-    
-    Initpoly = new ZZX*[3];
+void HEmatrix::genMultPoly_Parallel_Huang(ZZX**& Initpoly, long block_rots)
+{
+    Initpoly = new ZZX*[4];
     
     Initpoly[0] =  new ZZX[HEmatpar.dim];
     Initpoly[1] =  new ZZX[HEmatpar.dim];
     Initpoly[2] =  new ZZX[HEmatpar.dim];
+    Initpoly[3] =  new ZZX[HEmatpar.dim];
     
     complex<double>** fvals1   = new complex<double>*[HEmatpar.dim];
     complex<double>** fvals2   = new complex<double>*[HEmatpar.dim];
-    complex<double>** bvals    = new complex<double>*[HEmatpar.dim];
-    
-    
-    NTL_EXEC_RANGE(ibound, first, last);
-    for(int i = first; i < last; ++i){
-        long jbound = HEmatpar.sqrdim;
-        if ((btmp) && (i == (ibound - 1))){
-            jbound = (HEmatpar.dim % HEmatpar.sqrdim);
+    complex<double>** bvals    = new complex<double>*[HEmatpar.dim * 2];
+
+    for(long k = 0; k < HEmatpar.dim; ++k)
+    {
+        fvals1[k] = new complex<double>[HEmatpar.nslots];
+        fvals2[k] = new complex<double>[HEmatpar.nslots];
+        bvals[2 * k] = new complex<double>[HEmatpar.nslots];
+        bvals[2 * k + 1] = new complex<double>[HEmatpar.nslots];
+
+        long start = k * HEmatpar.dim * HEmatpar.nbatching;
+        long end = (k * HEmatpar.dim + HEmatpar.dim - k) * HEmatpar.nbatching;
+        for(long l = start; l < end; ++l){
+            fvals1[k][l].real(1.0);
         }
-        
-        for(long j = 0; j < jbound; ++j){
-            long k = i * HEmatpar.sqrdim + j;
-            fvals1[k] = new complex<double>[HEmatpar.nslots];
-            fvals2[k] = new complex<double>[HEmatpar.nslots];
-            bvals[k] = new complex<double>[HEmatpar.nslots];
-            
-            //! original: k * d <= index <= k * d + d - k -1
-            //! parallel: (k * d) * l + 0 <= ... <= (k * d) * l + (l-1)
-            //!           (k * d + d - k -1) * l + 0 <= ... <= (k * d + d - k -1) * l + (l-1) <  (k * d + d - k -1) * l + l
-            //!           from k * d * l <= index <  (k * d + d - k) * l
-            long start = k * HEmatpar.dim * HEmatpar.nbatching;
-            long end = ( k * HEmatpar.dim + HEmatpar.dim - k) * HEmatpar.nbatching;
-            for(long l = start; l < end; ++l){
-                fvals1[k][l].real(1.0);
+        msgrightRotate(fvals2[k], fvals1[k], HEmatpar.nslots, k * (HEmatpar.dim1 * HEmatpar.dim1) * HEmatpar.nbatching);
+        for(long l = 0; l < HEmatpar.dim; ++l)
+        {
+
+            long dtemp = (l * HEmatpar.dim + k) * (HEmatpar.nbatching); // U_dk
+            long loc = dtemp + HEmatpar.nbatching - block_rots; // U_(dk - 1)
+            for(long n = 0; n < block_rots; n++)
+            {
+                bvals[2 * k][loc].real(1.0); 
             }
-            
-            msgleftRotate(fvals2[k], fvals1[k], HEmatpar.nslots, k*(2*HEmatpar.dim - 1) * HEmatpar.nbatching);
-            
-            msgrightRotateAndEqual(fvals1[k], HEmatpar.nslots, i*HEmatpar.sqrdim * HEmatpar.nbatching);
-            Initpoly[0][k] = scheme.context.encode(fvals1[k], HEmatpar.nslots, HEmatpar.cBits);
-            
-            msgleftRotateAndEqual(fvals2[k], HEmatpar.nslots, i*HEmatpar.sqrdim * HEmatpar.nbatching);
-            Initpoly[1][k] = scheme.context.encode(fvals2[k], HEmatpar.nslots, HEmatpar.cBits);
-            
-            for(long l = 0; l < HEmatpar.dim; ++l){
-                long dtemp = (l * HEmatpar.dim + k) * HEmatpar.nbatching;
-                
-                for(long n = 0; n < HEmatpar.nbatching; ++n){
-                    bvals[k][dtemp + n].real(1.0);
-                }
+            for(long n = 0; n < HEmatpar.nbatching - block_rots; ++n)
+            {
+                bvals[2 * k + 1][dtemp + n].real(1.0);
             }
-            msgrightRotateAndEqual(bvals[k], HEmatpar.nslots, i*HEmatpar.sqrdim*HEmatpar.dim * HEmatpar.nbatching);
-            Initpoly[2][k] = scheme.context.encode(bvals[k], HEmatpar.nslots, HEmatpar.cBits);
+           
         }
+
+        Initpoly[0][k] = scheme.context.encode(fvals1[k], HEmatpar.nslots, HEmatpar.cBits);
+        Initpoly[1][k] = scheme.context.encode(fvals2[k], HEmatpar.nslots, HEmatpar.cBits);
+        Initpoly[2][k] = scheme.context.encode(bvals[2 * k], HEmatpar.nslots, HEmatpar.cBits);  // U_(dk - 1)
+        Initpoly[3][k] = scheme.context.encode(bvals[2 * k + 1], HEmatpar.nslots, HEmatpar.cBits); // U_dk
     }
-    NTL_EXEC_RANGE_END;
-    
+
+    cout << "bvals : " << endl;
+    for(long k = 0; k < HEmatpar.dim * 2; ++k)
+    {
+        cout << k << " : ";
+        for(long i = 0; i < HEmatpar.nslots; i++)
+        {
+            cout << bvals[k][i] << " ";
+        }
+        cout << endl;
+    }
+
     delete[] fvals1;
     delete[] fvals2;
     delete[] bvals;
@@ -1021,6 +995,169 @@ void HEmatrix::genInitCtxt_Parallel(Ciphertext& resA, Ciphertext& resB, Cipherte
     delete[] BaByctxtB;
 }
 
+void HEmatrix::genMultPoly_Parallel(ZZX**& Initpoly){
+    long btmp;
+    if((HEmatpar.dim % HEmatpar.sqrdim) == 0){ btmp = false; }    //! all the terms have the same numbers
+    else{ btmp = true; }
+    long ibound = (long) ceil((double)HEmatpar.dim/HEmatpar.sqrdim); //! number of "i"
+
+    
+    Initpoly = new ZZX*[3];
+    
+    Initpoly[0] =  new ZZX[HEmatpar.dim];
+    Initpoly[1] =  new ZZX[HEmatpar.dim];
+    Initpoly[2] =  new ZZX[HEmatpar.dim];
+    
+    complex<double>** fvals1   = new complex<double>*[HEmatpar.dim];
+    complex<double>** fvals2   = new complex<double>*[HEmatpar.dim];
+    complex<double>** bvals    = new complex<double>*[HEmatpar.dim];
+    
+    
+    NTL_EXEC_RANGE(ibound, first, last);
+    for(int i = first; i < last; ++i){
+        long jbound = HEmatpar.sqrdim;
+        if ((btmp) && (i == (ibound - 1))){
+            jbound = (HEmatpar.dim % HEmatpar.sqrdim);
+        }
+        
+        for(long j = 0; j < jbound; ++j){
+            long k = i * HEmatpar.sqrdim + j;
+            fvals1[k] = new complex<double>[HEmatpar.nslots];
+            fvals2[k] = new complex<double>[HEmatpar.nslots];
+            bvals[k] = new complex<double>[HEmatpar.nslots];
+            
+            //! original: k * d <= index <= k * d + d - k -1
+            //! parallel: (k * d) * l + 0 <= ... <= (k * d) * l + (l-1)
+            //!           (k * d + d - k -1) * l + 0 <= ... <= (k * d + d - k -1) * l + (l-1) <  (k * d + d - k -1) * l + l
+            //!           from k * d * l <= index <  (k * d + d - k) * l
+            long start = k * HEmatpar.dim * HEmatpar.nbatching;
+            long end = ( k * HEmatpar.dim + HEmatpar.dim - k) * HEmatpar.nbatching;
+            for(long l = start; l < end; ++l){
+                fvals1[k][l].real(1.0);
+            }
+            
+            msgleftRotate(fvals2[k], fvals1[k], HEmatpar.nslots, k*(2*HEmatpar.dim - 1) * HEmatpar.nbatching);
+            
+            msgrightRotateAndEqual(fvals1[k], HEmatpar.nslots, i*HEmatpar.sqrdim * HEmatpar.nbatching);
+            Initpoly[0][k] = scheme.context.encode(fvals1[k], HEmatpar.nslots, HEmatpar.cBits);
+            
+            msgleftRotateAndEqual(fvals2[k], HEmatpar.nslots, i*HEmatpar.sqrdim * HEmatpar.nbatching);
+            Initpoly[1][k] = scheme.context.encode(fvals2[k], HEmatpar.nslots, HEmatpar.cBits);
+            
+            for(long l = 0; l < HEmatpar.dim; ++l){
+                long dtemp = (l * HEmatpar.dim + k) * HEmatpar.nbatching;
+                
+                for(long n = 0; n < HEmatpar.nbatching; ++n){
+                    bvals[k][dtemp + n].real(1.0);
+                }
+            }
+            msgrightRotateAndEqual(bvals[k], HEmatpar.nslots, i*HEmatpar.sqrdim*HEmatpar.dim * HEmatpar.nbatching);
+            Initpoly[2][k] = scheme.context.encode(bvals[k], HEmatpar.nslots, HEmatpar.cBits);
+        }
+    }
+    NTL_EXEC_RANGE_END;
+    
+    delete[] fvals1;
+    delete[] fvals2;
+    delete[] bvals;
+}
+
+void HEmatrix::genInitCtxt_Parallel_Huang(Ciphertext& resA, Ciphertext& resB, Ciphertext& Actxt, Ciphertext& Bctxt, ZZX**& poly)
+{
+    Ciphertext* Actemp1 = new Ciphertext[HEmatpar.dim + 1]; //! update right polynomial
+    Ciphertext* Actemp2 = new Ciphertext[HEmatpar.dim + 1]; //! update right polynomial
+    Ciphertext* Bctemp1 = new Ciphertext[HEmatpar.dim + 1];
+    Ciphertext* Bctemp2 = new Ciphertext[HEmatpar.dim + 1];
+
+    //! 0. Store some ciphertexts (0,1,...,d-1), (,d+1,...2d-1)
+    //! v, lrho(v;1), lrho(v;2), ..., lrho(v;d-1)
+    //! -, rrho(v;1), rrho(v;2), ..., rrho(v;d-1)
+    
+    Ciphertext* BaByctxtA1  = new Ciphertext[HEmatpar.dim + 1];
+    Ciphertext* BaByctxtA2  = new Ciphertext[HEmatpar.dim + 1];
+    Ciphertext* BaByctxtB1  = new Ciphertext[HEmatpar.dim + 1];
+    Ciphertext* BaByctxtB2  = new Ciphertext[HEmatpar.dim + 1];
+    
+    BaByctxtA1[0] = Actxt;
+    BaByctxtA2[0] = Actxt;
+    BaByctxtB1[0] = Bctxt;
+    BaByctxtB2[0] = Bctxt;
+ 
+    //! i = 0:   Actxts[0] = v[0] + p1 * v[1] + ... + p[sqr(d)-1] *  v[sqr(d)-1]
+    resA = scheme.multByPoly(BaByctxtA1[0], poly[0][0], HEmatpar.cBits);
+    Ciphertext tmp = scheme.rightRotate(BaByctxtB1[0], HEmatpar.nbatching);
+    scheme.multByPolyAndEqual(tmp, poly[2][0], HEmatpar.cBits);
+    resB = scheme.multByPoly(BaByctxtB2[0], poly[3][0], HEmatpar.cBits);
+    scheme.addAndEqual(resB, tmp);
+
+    for(long j = 1; j < HEmatpar.dim; ++j)
+    {
+        
+        BaByctxtA1[j] = scheme.leftRotate(Actxt, j * HEmatpar.nbatching);
+        BaByctxtA2[j] = scheme.rightRotate(Actxt, j * HEmatpar.nbatching);
+        BaByctxtB1[j] = scheme.leftRotate(Bctxt, (j * HEmatpar.dim - 1 )* HEmatpar.nbatching);
+        BaByctxtB2[j] = scheme.leftRotate(Bctxt, (j) * HEmatpar.dim * HEmatpar.nbatching);
+        
+        Actemp1[j] = scheme.multByPoly(BaByctxtA1[j], poly[0][j], HEmatpar.cBits);
+        Actemp2[j] = scheme.multByPoly(BaByctxtA2[j], poly[1][j], HEmatpar.cBits);
+        Bctemp1[j] = scheme.multByPoly(BaByctxtB1[j], poly[2][j], HEmatpar.cBits);
+        Bctemp2[j] = scheme.multByPoly(BaByctxtB2[j], poly[3][j], HEmatpar.cBits);
+        
+        scheme.addAndEqual(Actemp1[j], Actemp2[j]);
+        scheme.addAndEqual(Bctemp1[j], Bctemp2[j]);
+    }
+    for(long j = 1; j < HEmatpar.dim; ++j)
+    {
+        scheme.addAndEqual(resA, Actemp1[j]);
+        scheme.addAndEqual(resB, Bctemp1[j]);
+    }
+
+    scheme.reScaleByAndEqual(resA, HEmatpar.cBits);
+    scheme.reScaleByAndEqual(resB, HEmatpar.cBits);
+    
+    delete[] Actemp1;
+    delete[] Actemp2;
+    delete[] Bctemp1;
+    delete[] Bctemp2;
+    
+    delete[] BaByctxtA1;
+    delete[] BaByctxtA2;
+    delete[] BaByctxtB1;
+    delete[] BaByctxtB2;
+}
+
+void HEmatrix::HEmatmul_Parallel_Huang(Ciphertext& res, Ciphertext& Actxt, Ciphertext& Bctxt, ZZX**& Initpoly, ZZX*& shiftpoly)
+{
+    Ciphertext* Actxts = new Ciphertext[HEmatpar.dim];
+    Ciphertext* Bctxts = new Ciphertext[HEmatpar.dim];
+    
+    //! 1. Generate the initial ciphertexts
+    genInitCtxt_Parallel_Huang(Actxts[0], Bctxts[0], Actxt, Bctxt, Initpoly);
+    // Mat<RR> *resB;
+    // decryptParallelRmat(resA, Actxts[0]);
+    // cout << "resA : " << endl;
+    // cout << *resA << endl;
+    // decryptParallelRmat(resB, Bctxts[0]);
+    // cout << "resB : " << endl;
+    // cout << resB[0] << endl;
+    // cout << resB[1] << endl;
+
+    //! 2. Column shifting of Actxt[0], Row shifting of Bctxt[0]
+    long unit = HEmatpar.dim  * HEmatpar.nbatching;
+    NTL_EXEC_RANGE(HEmatpar.dim1, first, last);
+    for(int i = first; i < last; ++i){
+        long i1 = (i + 1);
+        shiftBycols_Parallel(Actxts[i1], Actxts[0], i1, shiftpoly);
+        Bctxts[i1] = scheme.leftRotate(Bctxts[0], unit * (i1));
+    }
+    NTL_EXEC_RANGE_END;
+    
+    //! 3. Hadamard mult : Actxts[0] * Bctxts[0] + ... + Actxts[d-1] * Bctxts[d-1]
+    HEmatmul_Hadamard(res, Actxts, Bctxts, HEmatpar.dim);
+
+    delete[] Actxts;
+    delete[] Bctxts;
+}
 void HEmatrix::HEmatmul_Parallel(Ciphertext& res, Ciphertext& Actxt, Ciphertext& Bctxt, ZZX**& Initpoly, ZZX*& shiftpoly){
     Ciphertext* Actxts = new Ciphertext[HEmatpar.dim];
     Ciphertext* Bctxts = new Ciphertext[HEmatpar.dim];

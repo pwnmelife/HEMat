@@ -69,18 +69,19 @@ int main() {
         cout << "| 9. Parallel Matrix addition              |" << endl;
         cout << "| 10. Parallel Matrix transposition        |" << endl;
         cout << "| 11. Parallel Matrix multiplication       |" << endl;
+        cout << "| 12. Parallel Matrix multiplication of Hua|" << endl;
         cout << "+------------------------------------------+" << endl;
         
         int selection = 0;
         bool invalid = true;
         do
         {
-            cout << endl << "> Run example (1 ~ 11) or exit (0): ";
+            cout << endl << "> Run example (1 ~ 12) or exit (0): ";
             if (!(cin >> selection))
             {
                 invalid = false;
             }
-            else if (selection < 0 || selection > 11)
+            else if (selection < 0 || selection > 12)
             {
                 invalid = false;
             }
@@ -90,7 +91,7 @@ int main() {
             }
             if (!invalid)
             {
-                cout << "  Invalid option: type 0 ~ 11" << endl;
+                cout << "  Invalid option: type 0 ~ 12" << endl;
                 cin.clear();
             }
         } while (!invalid);
@@ -167,7 +168,17 @@ int main() {
                 cin >> dim >> nbatching >> niter;
                 TestHEmatrix::testSIMDMult(dim, nbatching, niter);  //! square matrix
                 break;
-                
+            case 12:
+                long Arows, Acols;
+                long Brows, Bcols;
+                cout << "> Enter Amat rows and columns : ";
+                cin >> Arows >> Acols;
+                cout << "> Enter Bmat rows and columns : ";
+                cin >> Brows >> Bcols;
+                cout << "> Enter nbatching : ";
+                cin >> nbatching;
+                TestHEmatrix::testSIMDMult_Huang(Arows, Acols, Brows, Bcols, nbatching);  //! square matrix
+                break;    
             case 0:
                 return 0;
         }

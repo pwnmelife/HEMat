@@ -190,12 +190,18 @@ public:
     /**
      @param[out] Initpoly, The polynomials needed for the initial linear transformations  
      */
+    void genMultPoly_Parallel_Huang(ZZX**& Initpoly, long block_rots);
+
+    /**
+     @param[out] Initpoly, The polynomials needed for the initial linear transformations  
+     */
     void genMultPoly_Parallel(ZZX**& Initpoly);
     
     /**
      @param[out] Initpoly, The polynomials needed for the initial linear transformations to get B[0]
      */
     void genMultBPoly(ZZX*& Initpoly);
+    
     
     /**
      @param[in] Actxt, The input ciphertext encrypting a matrix A
@@ -206,6 +212,15 @@ public:
      */
     void genInitCtxt(Ciphertext& resA, Ciphertext& resB, Ciphertext& Actxt, Ciphertext& Bctxt, ZZX**& Initpoly);
     
+    /**
+     @param[in] Actxt, The input ciphertext encrypting multiple matrices As
+     @param[in] Bctxt, The input ciphertext encrypting multiple matrices Bs
+     @param[in] Initpoly, The polynomials needed for linear transformations of parallel multiplication
+     @param[out] resA, The output ciphertext encrypting multiple permuated matrices A[0]'s
+     @param[out] resB, The output ciphertext encrypting multiple permuated matrices B[0]'s
+     */
+    void genInitCtxt_Parallel_Huang(Ciphertext& resA, Ciphertext& resB, Ciphertext& Actxt, Ciphertext& Bctxt, ZZX**& Initpoly);
+
     /**
      @param[in] Actxt, The input ciphertext encrypting multiple matrices As
      @param[in] Bctxt, The input ciphertext encrypting multiple matrices Bs
@@ -252,6 +267,15 @@ public:
      */
     void HEmatmul(Ciphertext& res, Ciphertext& Actxt, Ciphertext& Bctxt, ZZX**& Initpoly, ZZX*& shiftpoly);
     
+        /**
+     @param[in] Actxt, The input ciphertext encrypting multiple matrices As
+     @param[in] Bctxt, The input ciphertext encrypting multiple matrices Bs
+     @param[in] Initpoly, The polynomials needed for linear transformations of parallel multiplication
+     @param[in]  shiftpoly, The polynomials for parallel shift-by-column operations
+     @param[out] res, The output ciphertext encrypting matrices (As * Bs)
+     */
+    void HEmatmul_Parallel_Huang(Ciphertext& res, Ciphertext& Actxt, Ciphertext& Bctxt, ZZX**& Initpoly, ZZX*& shiftpoly);
+
     /**
      @param[in] Actxt, The input ciphertext encrypting multiple matrices As
      @param[in] Bctxt, The input ciphertext encrypting multiple matrices Bs

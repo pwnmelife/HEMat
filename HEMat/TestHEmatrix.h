@@ -41,6 +41,7 @@ public:
     static void testSIMDTrans(long dim, long nbatching, const long nitr);
     
     static void testSIMDMult(long dim, long nbatching, const long nitr);
+    static void testSIMDMult_Huang(long Arows, long Acols, long Brows, long Bcols, long nbatching);
     
 };
 

@@ -314,8 +314,8 @@ void TestHEmatrix::testAdd(long nrows) {
     
     for(long i = 0; i < nrows ; i++){
         for(long j = 0; j < ncols; j++){
-            Amat[i][j]= to_RR((((i* 2 + ncols * j)%3)/10.0));
-            Bmat[i][j]= to_RR((((i*ncols + j )%3)/10.0));
+            Amat[i][j]= to_RR((((i* 2 + ncols * j) % 3) / 1.0));
+            Bmat[i][j]= to_RR((((i*ncols + j ) % 3) / 1.0));
         }
     }
     
@@ -342,7 +342,6 @@ void TestHEmatrix::testAdd(long nrows) {
     /*---------------------------------------*/
     
     start = chrono::steady_clock::now();
-    
     scheme.addAndEqual(Actxt, Bctxt);
     
     end = std::chrono::steady_clock::now();
@@ -1531,4 +1530,158 @@ void TestHEmatrix::testSIMDMult(long nrows, long nbatching, const long niter) {
     cout << "Amortized time= " << amortizedtime/niter << " s" << endl;
     cout << "Dec time= " <<  totalDectime/niter << " s" << endl;
     
+}
+
+void TestHEmatrix::testSIMDMult_Huang(long Arows, long Acols, long Brows, long Bcols, long nbatching)
+{
+
+    long logN = 13;
+    
+    long ncols = Bcols;
+    long nrows = Bcols;
+
+    if(nrows * ncols * nbatching > (1<< (logN-1)))
+    {
+        cout << "Cannot support the parallism " << endl;
+    }
+    
+    long pBits = 25;   // scaling factor for message
+    long cBits = 15;   // scaling factor for constant
+    long lBits = pBits + 5;
+    long logQ = (2*cBits + pBits) + lBits;
+    
+    long h = 64;
+    long keydist = 1;
+    
+    struct HEMatpar HEmatpar;
+    readHEMatpar(HEmatpar, nrows, ncols, pBits, cBits, logQ, 0, nbatching);
+    
+    cout << "------------------" << endl;
+    cout << "(dim, nslots, nbatching) = (" << nrows << ","  << HEmatpar.nslots << ","  << HEmatpar.nbatching << ")" << endl;
+    cout << "HEAAN PARAMETER logQ: " << logQ << endl;
+    cout << "HEAAN PARAMETER logN: " << logN << endl;
+    
+    
+    /*---------------------------------------*/
+    //  Key Generation
+    /*---------------------------------------*/
+    
+    TimeUtils timeutils;
+    timeutils.start("Scheme generating...");
+    Context context(logN, logQ);
+    SecretKey secretKey(logN, h);
+    Scheme scheme(secretKey, context);
+    
+    scheme.addLeftRotKeys(secretKey);
+    scheme.addRightRotKeys(secretKey);
+    timeutils.stop("Scheme generation");
+    
+    HEmatrix HEmatrix(scheme, secretKey, HEmatpar);
+    
+    /*---------------------------------------*/
+    //  Generate a random matrix
+    /*---------------------------------------*/
+    Mat<RR>** Amat = new Mat<RR>*[nbatching];
+    Mat<RR>** AmatDiagonalBlock = new Mat<RR>*[nbatching];
+    Mat<RR>* Bmat = new Mat<RR>[nbatching];
+    
+    cout << "Amat : " << endl;
+    for(long k = 0; k < nbatching; ++k)
+    {
+        Amat[k] = new Mat<RR>[nbatching];
+        for(long l = 0; l < nbatching; ++l)
+        {
+            Amat[k][l].SetDims(nrows, ncols);
+            for(long i = 0; i < nrows ; i++)
+            {
+                for(long j = 0; j < ncols; j++)
+                {
+                    Amat[k][l][i][j] = to_RR(((i * ncols + j + k) % 3 / 1.0));
+                }
+            }
+            cout << "(" << k << "," << l << ")" << endl;
+            cout << Amat[k][l] << endl;
+        }
+    }
+    cout << "AmatDiagonalBlock : " << endl;
+    for(long k = 0; k < nbatching; k++)
+    {
+        AmatDiagonalBlock[k] = new Mat<RR>[nbatching];
+        for(long l = 0; l < nbatching; l++)
+        {
+            AmatDiagonalBlock[k][l] = Amat[l][(l + k) % nbatching];
+            cout << "(" << k << "," << l << ")" << endl;
+            cout << AmatDiagonalBlock[k][l] << endl;
+        }
+    }
+    cout << "Bmat : " << endl;
+    for(long k = 0; k < nbatching; ++k)
+    {
+        Bmat[k].SetDims(nrows, ncols);
+        for(long i = 0; i < nrows ; i++)
+        {
+            for(long j = 0; j < ncols; j++)
+            {
+                Bmat[k][i][j] = to_RR(((2 * i * ncols + j + k) % 3 / 1.0));
+            }
+        }
+        cout << k << " : " << endl;
+        cout << Bmat[k] << endl;
+    }
+
+
+    /* 0th diagonal multiply vector */
+    Ciphertext Actxt_0;
+    HEmatrix.encryptParallelRmat(Actxt_0, AmatDiagonalBlock[0], HEmatpar.pBits, nbatching);
+
+    Ciphertext Bctxt;
+    HEmatrix.encryptParallelRmat(Bctxt, Bmat, HEmatpar.pBits, nbatching);
+    
+    ZZX** Initpoly;
+    HEmatrix.genMultPoly_Parallel_Huang(Initpoly, 0);
+
+    ZZX* shiftpoly;
+    HEmatrix.genShiftPoly_Parallel(shiftpoly);
+
+    Ciphertext res;
+    HEmatrix.HEmatmul_Parallel_Huang(res, Actxt_0, Bctxt, Initpoly, shiftpoly);
+
+    for(long l = 1; l < nbatching; ++l)
+    {
+
+        /*---------------------------------------*/
+        //  Rotation
+        /*---------------------------------------*/
+        scheme.leftRotateAndEqual(Bctxt, l);
+
+        /*---------------------------------------*/
+        //  Encryption
+        /*---------------------------------------*/
+        Ciphertext Actxt;
+        HEmatrix.encryptParallelRmat(Actxt, AmatDiagonalBlock[l], HEmatpar.pBits, nbatching);
+        
+        /*---------------------------------------*/
+        //  Genpoly
+        /*---------------------------------------*/
+        
+        ZZX** Initpoly;
+        HEmatrix.genMultPoly_Parallel_Huang(Initpoly, l);
+        
+        /*---------------------------------------*/
+        //  Mult
+        /*---------------------------------------*/
+        Ciphertext Cctxt;
+        HEmatrix.HEmatmul_Parallel_Huang(Cctxt, Actxt, Bctxt, Initpoly, shiftpoly);
+        scheme.addAndEqual(res, Cctxt);
+    }
+    /*---------------------------------------*/
+    //  Decryption
+    /*---------------------------------------*/
+    Mat<RR>* HEresmat;
+    HEmatrix.decryptParallelRmat(HEresmat, res);
+    for(long k = 0; k < nbatching; ++k)
+    {
+        cout << k << " : " << endl;
+        cout << HEresmat[k] << endl;
+    }
 }
