@@ -1233,28 +1233,8 @@ void HEmatrix::HEmatmul_Parallel_Huang(Ciphertext& res, Ciphertext& Actxt, Ciphe
 {
     Ciphertext* Actxts = new Ciphertext[HEmatpar.dim];
     Ciphertext* Bctxts = new Ciphertext[HEmatpar.dim];
-    Mat<RR> *resB;
-    // decryptParallelRmat(resB, Bctxt);
-    // cout << "resB : " << endl;
-    // cout << resB[0] << endl;
-    // cout << resB[1] << endl;
-    // cout << resB[2] << endl;
-    // cout << resB[3] << endl;
     //! 1. Generate the initial ciphertexts
     genInitCtxt_Parallel_Huang(Actxts[0], Bctxts[0], Actxt, Bctxt, Initpoly);
-
-    // decryptParallelRmat(resA, Actxts[0]);
-    // cout << "resA : " << endl;
-    // cout << resA[0] << endl;
-    // cout << resA[1] << endl;
-    // cout << resA[2] << endl;
-    // cout << resA[3] << endl;
-    // decryptParallelRmat(resB, Bctxts[0]);
-    // cout << "resB : " << endl;
-    // cout << resB[0] << endl;
-    // cout << resB[1] << endl;
-    // cout << resB[2] << endl;
-    // cout << resB[3] << endl;
 
     //! 2. Column shifting of Actxt[0], Row shifting of Bctxt[0]
     long unit = HEmatpar.dim  * HEmatpar.nbatching;
