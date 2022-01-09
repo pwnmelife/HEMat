@@ -58,6 +58,37 @@ void printRvector(vec_RR& vec, long print_size){
     }
 }
 
+// kronecker function
+bool kronecker(long x, long y)
+{
+    return x == y ? true : false;
+}
+
+void generate_random_permutation_matrix(Mat<RR> &mat)
+{
+    Vec<long> random_v;
+    long r = mat.NumRows();
+    long c = mat.NumCols();
+    random_v.SetLength(r);
+    long high = r-1;
+    long low = 0;
+    for(long i = 0; i < r; i++)
+    {
+        random_v[i] = i;
+    }
+    cout << random_v << endl;
+    for(high; low < high; high--)
+    {
+        long j = rand() % high;
+        swap(random_v[high], random_v[j]);
+    }
+    cout << random_v << endl;
+    for(long i = 0; i < r; i++)
+    {
+        mat[i][random_v[i]] = 1;
+    }
+}
+
 
 //!@ Input: RR-matrix
 //!@ Function: print the matrix

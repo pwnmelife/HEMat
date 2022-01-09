@@ -30,6 +30,10 @@ using namespace NTL;
 
 void printRvector(vec_RR& vec, const long print_size = 0);
 
+bool kronecker(long x, long y);
+
+void generate_random_permutation_matrix(Mat<RR> &mat);
+
 void printRmatrix(Mat<RR>& mat, const long print_size = 0);
 
 RR getError(mat_RR Amat, mat_RR Bmat, const long nrows = 0, const long ncols = 0);

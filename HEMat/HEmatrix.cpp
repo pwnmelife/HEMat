@@ -847,7 +847,7 @@ void HEmatrix::genMultPoly_Parallel_Huang(ZZX**& Initpoly, long block_rots)
             long loc = dtemp + HEmatpar.nbatching - block_rots; // U_(dk - 1)
             for(long n = 0; n < block_rots; n++)
             {
-                bvals[2 * k][loc].real(1.0); 
+                bvals[2 * k][loc + n].real(1.0);
             }
             for(long n = 0; n < HEmatpar.nbatching - block_rots; ++n)
             {
@@ -862,16 +862,16 @@ void HEmatrix::genMultPoly_Parallel_Huang(ZZX**& Initpoly, long block_rots)
         Initpoly[3][k] = scheme.context.encode(bvals[2 * k + 1], HEmatpar.nslots, HEmatpar.cBits); // U_dk
     }
 
-    cout << "bvals : " << endl;
-    for(long k = 0; k < HEmatpar.dim * 2; ++k)
-    {
-        cout << k << " : ";
-        for(long i = 0; i < HEmatpar.nslots; i++)
-        {
-            cout << bvals[k][i] << " ";
-        }
-        cout << endl;
-    }
+    // cout << "bvals : " << endl;
+    // for(long k = 0; k < HEmatpar.dim * 2; ++k)
+    // {
+    //     cout << k << " : ";
+    //     for(long i = 0; i < HEmatpar.nslots; i++)
+    //     {
+    //         cout << bvals[k][i] << " ";
+    //     }
+    //     cout << endl;
+    // }
 
     delete[] fvals1;
     delete[] fvals2;
@@ -1130,18 +1130,29 @@ void HEmatrix::HEmatmul_Parallel_Huang(Ciphertext& res, Ciphertext& Actxt, Ciphe
 {
     Ciphertext* Actxts = new Ciphertext[HEmatpar.dim];
     Ciphertext* Bctxts = new Ciphertext[HEmatpar.dim];
-    
+    Mat<RR> *resB;
+
+    // decryptParallelRmat(resB, Bctxt);
+    // cout << "before genInitCtxt_Parallel_Huang, resB : " << endl;
+    // cout << resB[0] << endl;
+    // cout << resB[1] << endl;
+    // cout << resB[2] << endl;
+    // cout << resB[3] << endl;
     //! 1. Generate the initial ciphertexts
     genInitCtxt_Parallel_Huang(Actxts[0], Bctxts[0], Actxt, Bctxt, Initpoly);
-    // Mat<RR> *resB;
+    //cout << "after genInitCtxt_Parallel_Huang, resB : " << endl;
     // decryptParallelRmat(resA, Actxts[0]);
     // cout << "resA : " << endl;
-    // cout << *resA << endl;
+    // cout << resA[0] << endl;
+    // cout << resA[1] << endl;
+    // cout << resA[2] << endl;
+    // cout << resA[3] << endl;
     // decryptParallelRmat(resB, Bctxts[0]);
     // cout << "resB : " << endl;
     // cout << resB[0] << endl;
     // cout << resB[1] << endl;
-
+    // cout << resB[2] << endl;
+    // cout << resB[3] << endl;
     //! 2. Column shifting of Actxt[0], Row shifting of Bctxt[0]
     long unit = HEmatpar.dim  * HEmatpar.nbatching;
     NTL_EXEC_RANGE(HEmatpar.dim1, first, last);

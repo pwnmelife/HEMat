@@ -1561,7 +1561,10 @@ void TestHEmatrix::testSIMDMult_Huang(long Arows, long Acols, long Brows, long B
     cout << "HEAAN PARAMETER logQ: " << logQ << endl;
     cout << "HEAAN PARAMETER logN: " << logN << endl;
     
-    
+    /*---------------------------------------*/
+    //  Initialization random seed
+    /*---------------------------------------*/
+    srand(time(NULL));
     /*---------------------------------------*/
     //  Key Generation
     /*---------------------------------------*/
@@ -1581,61 +1584,105 @@ void TestHEmatrix::testSIMDMult_Huang(long Arows, long Acols, long Brows, long B
     /*---------------------------------------*/
     //  Generate a random matrix
     /*---------------------------------------*/
-    Mat<RR>** Amat = new Mat<RR>*[nbatching];
-    Mat<RR>** AmatDiagonalBlock = new Mat<RR>*[nbatching];
-    Mat<RR>* Bmat = new Mat<RR>[nbatching];
+    Mat<RR>* Mat_Vertical_Stack = new Mat<RR>[2];
+    Mat_Vertical_Stack[0].SetDims(Acols, Acols);Mat_Vertical_Stack[1].SetDims(Acols, Acols);
+    Mat<RR>* Mat_Horizontal_Stack = new Mat<RR>[2];
+    Mat_Horizontal_Stack[0].SetDims(Brows, Brows);Mat_Horizontal_Stack[1].SetDims(Brows, Brows);
+
+    Mat<RR> vertical_Amat, Amat, Random_Amat;
+    vertical_Amat.SetDims(2 * Arows, Acols);Amat.SetDims(Acols, Acols);Random_Amat.SetDims(Acols, Acols);
+    Mat<RR> horizontal_Bmat_trans,Bmat, Random_Bmat;
+    horizontal_Bmat_trans.SetDims(2 * Brows, Brows);Bmat.SetDims(Brows, Brows);Random_Bmat.SetDims(Brows, Brows);
     
-    cout << "Amat : " << endl;
-    for(long k = 0; k < nbatching; ++k)
+    for(long i = 0; i < Acols; i++)
     {
-        Amat[k] = new Mat<RR>[nbatching];
-        for(long l = 0; l < nbatching; ++l)
+        for(long j = 0; j < Acols; j++)
         {
-            Amat[k][l].SetDims(nrows, ncols);
-            for(long i = 0; i < nrows ; i++)
-            {
-                for(long j = 0; j < ncols; j++)
-                {
-                    Amat[k][l][i][j] = to_RR(((i * ncols + j + k) % 3 / 1.0));
-                }
-            }
-            cout << "(" << k << "," << l << ")" << endl;
-            cout << Amat[k][l] << endl;
+            Amat[i][j] = to_RR(rand() % 5);
+            Random_Amat[i][j] = to_RR(rand() % 5);
         }
-    }
-    cout << "AmatDiagonalBlock : " << endl;
-    for(long k = 0; k < nbatching; k++)
-    {
-        AmatDiagonalBlock[k] = new Mat<RR>[nbatching];
-        for(long l = 0; l < nbatching; l++)
-        {
-            AmatDiagonalBlock[k][l] = Amat[l][(l + k) % nbatching];
-            cout << "(" << k << "," << l << ")" << endl;
-            cout << AmatDiagonalBlock[k][l] << endl;
-        }
-    }
-    cout << "Bmat : " << endl;
-    for(long k = 0; k < nbatching; ++k)
-    {
-        Bmat[k].SetDims(nrows, ncols);
-        for(long i = 0; i < nrows ; i++)
-        {
-            for(long j = 0; j < ncols; j++)
-            {
-                Bmat[k][i][j] = to_RR(((2 * i * ncols + j + k) % 3 / 1.0));
-            }
-        }
-        cout << k << " : " << endl;
-        cout << Bmat[k] << endl;
+        vertical_Amat[i] = Amat[i];
+        vertical_Amat[i + Acols] = Random_Amat[i];
     }
 
+    cout << "Amat : " << endl;
+    cout << Amat << endl;
+    cout << "Random_Amat : " << endl;
+    cout << Random_Amat << endl;
+    cout << "vertical_Amat : " << endl;
+    cout << vertical_Amat << endl;
+
+    for(long i = 0; i < Bcols; i++)
+    {
+        for(long j = 0; j < Bcols; j++)
+        {
+            Bmat[i][j] = to_RR(rand() % 5);
+            Random_Bmat[i][j] = to_RR(rand() % 5);
+        }
+    }
+    Mat<RR> Bmat_trans = transpose(Bmat);
+    Mat<RR> Random_Bmat_trans = transpose(Random_Bmat);
+    for(long j = 0; j < Bcols; j++)
+    {
+        horizontal_Bmat_trans[j] = Bmat_trans[j];
+        horizontal_Bmat_trans[j + Bcols] = Random_Bmat_trans[j];
+    }
+
+    cout << "Bmat : " << endl;
+    cout << Bmat << endl;
+    cout << "Random_Bmat : " << endl;
+    cout << Random_Bmat << endl;
+    cout << "horizontal_Bmat : " << endl;
+    cout << horizontal_Bmat_trans << endl;
+
+    Mat<RR> permutation_Amat, permutation_Bmat;
+    permutation_Amat.SetDims(2 * Arows, 2 * Arows);
+    permutation_Bmat.SetDims(2 * Bcols, 2 * Bcols);
+    generate_random_permutation_matrix(permutation_Amat);   // ??? 
+    generate_random_permutation_matrix(permutation_Bmat);
+
+    cout << "permutation_Amat : " << endl;
+    cout << permutation_Amat << endl;
+
+    cout << "permutation_Bmat : " << endl;
+    cout << permutation_Bmat << endl;
+
+    Mat<RR> vertical_Amat_mul = permutation_Amat * vertical_Amat;
+    Mat<RR> horizontal_Bmat_mul = transpose(horizontal_Bmat_trans) * permutation_Bmat;
+
+
+    for(long i = 0; i < Arows; i++)
+    {
+        Mat_Vertical_Stack[0][i] = vertical_Amat_mul[i];
+        Mat_Vertical_Stack[1][i] = vertical_Amat_mul[i + Arows];
+    }
+    for(long i = 0; i < Arows; i++)
+    {
+        for(long j = 0; j < Arows; j++)
+        {
+            Mat_Horizontal_Stack[0][i][j] = horizontal_Bmat_mul[i][j];
+            Mat_Horizontal_Stack[1][i][j] = horizontal_Bmat_mul[i][j + Arows];
+        }
+    }
+
+
+    cout << "Mat_Vertical_Stack[0] : " << endl;
+    cout << Mat_Vertical_Stack[0] << endl;
+    cout << "Mat_Vertical_Stack[1] : " << endl;
+    cout << Mat_Vertical_Stack[1] << endl;
+
+    cout << "transpose Mat_Horizontal_Stack[0] : " << endl;
+    cout << Mat_Horizontal_Stack[0] << endl;
+
+    cout << "transpose Mat_Horizontal_Stack[1] : " << endl;
+    cout << Mat_Horizontal_Stack[1] << endl;
 
     /* 0th diagonal multiply vector */
-    Ciphertext Actxt_0;
-    HEmatrix.encryptParallelRmat(Actxt_0, AmatDiagonalBlock[0], HEmatpar.pBits, nbatching);
+    Ciphertext Actxt;
+    HEmatrix.encryptParallelRmat(Actxt, Mat_Vertical_Stack, HEmatpar.pBits, nbatching);
 
     Ciphertext Bctxt;
-    HEmatrix.encryptParallelRmat(Bctxt, Bmat, HEmatpar.pBits, nbatching);
+    HEmatrix.encryptParallelRmat(Bctxt, Mat_Horizontal_Stack, HEmatpar.pBits, nbatching);
     
     ZZX** Initpoly;
     HEmatrix.genMultPoly_Parallel_Huang(Initpoly, 0);
@@ -1643,45 +1690,66 @@ void TestHEmatrix::testSIMDMult_Huang(long Arows, long Acols, long Brows, long B
     ZZX* shiftpoly;
     HEmatrix.genShiftPoly_Parallel(shiftpoly);
 
-    Ciphertext res;
-    HEmatrix.HEmatmul_Parallel_Huang(res, Actxt_0, Bctxt, Initpoly, shiftpoly);
+    Ciphertext* res = new Ciphertext[nbatching];
+    HEmatrix.HEmatmul_Parallel_Huang(res[0], Actxt, Bctxt, Initpoly, shiftpoly);
 
-    for(long l = 1; l < nbatching; ++l)
-    {
+    /* 1th diagonal multiply vector */
+    Ciphertext Bctxt_rot_one = scheme.leftRotate(Bctxt, 1);
 
-        /*---------------------------------------*/
-        //  Rotation
-        /*---------------------------------------*/
-        scheme.leftRotateAndEqual(Bctxt, l);
+    HEmatrix.genMultPoly_Parallel_Huang(Initpoly, 1);
 
-        /*---------------------------------------*/
-        //  Encryption
-        /*---------------------------------------*/
-        Ciphertext Actxt;
-        HEmatrix.encryptParallelRmat(Actxt, AmatDiagonalBlock[l], HEmatpar.pBits, nbatching);
-        
-        /*---------------------------------------*/
-        //  Genpoly
-        /*---------------------------------------*/
-        
-        ZZX** Initpoly;
-        HEmatrix.genMultPoly_Parallel_Huang(Initpoly, l);
-        
-        /*---------------------------------------*/
-        //  Mult
-        /*---------------------------------------*/
-        Ciphertext Cctxt;
-        HEmatrix.HEmatmul_Parallel_Huang(Cctxt, Actxt, Bctxt, Initpoly, shiftpoly);
-        scheme.addAndEqual(res, Cctxt);
-    }
+    HEmatrix.HEmatmul_Parallel_Huang(res[1], Actxt, Bctxt_rot_one, Initpoly, shiftpoly);
+
     /*---------------------------------------*/
     //  Decryption
     /*---------------------------------------*/
-    Mat<RR>* HEresmat;
-    HEmatrix.decryptParallelRmat(HEresmat, res);
-    for(long k = 0; k < nbatching; ++k)
+    Mat<RR> DecryptionRes;DecryptionRes.SetDims(2 * Arows, 2 * Arows);
+    Mat<RR>** HEresmat = new Mat<RR>*[nbatching];
+    for(long i = 0; i < nbatching; i++)
     {
-        cout << k << " : " << endl;
-        cout << HEresmat[k] << endl;
+        HEmatrix.decryptParallelRmat(HEresmat[i], res[i]);
+        cout << "(" << i << ",0)" << endl;
+        cout << HEresmat[i][0] << endl;
+        cout << "(" << i << ",1)" << endl;
+        cout << HEresmat[i][1] << endl;
+        for(long j = 0; j < nbatching; j++)
+        {
+            for(long k = 0; k < Arows; k++)
+            {
+                for(long l = 0; l < Arows; l++)
+                {
+                    DecryptionRes[(k + j * Arows)][(l + (i + j) * Arows) % (2 * Arows)] = HEresmat[i][j][k][l];
+                }
+            }
+            
+        }
+    }
+    cout << "DecryptionRes : " << endl;
+    cout << DecryptionRes << endl;
+    // plaintext random matrix multiplication
+
+    Mat<RR> permutation_res = transpose(permutation_Amat) * DecryptionRes * transpose(permutation_Bmat);
+    Mat<RR> random_matrix_multiplication = Random_Amat * Random_Bmat;
+
+    cout << "permutation_res : " << endl;
+    cout << permutation_res << endl;
+    cout << "random_matrix_multiplication : " << endl;
+    cout << random_matrix_multiplication << endl;
+    bool flag = false; 
+    for(long i = Arows; i < 2 * Arows; i++)
+    {
+        for(long j = Arows; j < 2 * Arows; j++)
+        {
+            if(abs(permutation_res[i][j] - random_matrix_multiplication[i - Arows][j - Arows]) > to_RR(0.01))
+            {
+                flag = true;
+                cout << "The result is not correct !!!" << endl;
+                break;
+            }
+        }
+    }
+    if(!flag)
+    {
+        cout << "The result is correct" << endl;
     }
 }
