@@ -1561,7 +1561,6 @@ void TestHEmatrix::testSIMDMult_Huang(long Arows, long Acols, long Brows, long B
     cout << "HEAAN PARAMETER logQ: " << logQ << endl;
     cout << "HEAAN PARAMETER logN: " << logN << endl;
     
-    
     /*---------------------------------------*/
     //  Key Generation
     /*---------------------------------------*/
@@ -1581,11 +1580,13 @@ void TestHEmatrix::testSIMDMult_Huang(long Arows, long Acols, long Brows, long B
     /*---------------------------------------*/
     //  Generate a random matrix
     /*---------------------------------------*/
+    // Mat<RR> Atmp;
+    // Atmp.SetDims(Arows, Acols);
     Mat<RR>** Amat = new Mat<RR>*[nbatching];
     Mat<RR>** AmatDiagonalBlock = new Mat<RR>*[nbatching];
     Mat<RR>* Bmat = new Mat<RR>[nbatching];
     
-    cout << "Amat : " << endl;
+    // cout << "Amat : " << endl;
     for(long k = 0; k < nbatching; ++k)
     {
         Amat[k] = new Mat<RR>[nbatching];
@@ -1597,24 +1598,29 @@ void TestHEmatrix::testSIMDMult_Huang(long Arows, long Acols, long Brows, long B
                 for(long j = 0; j < ncols; j++)
                 {
                     Amat[k][l][i][j] = to_RR(((i * ncols + j + k) % 3 / 1.0));
+                    //Atmp[k * nbatching + i][l * nbatching + j] = to_RR(((i * ncols + j + k) % 3 / 1.0));
                 }
             }
-            cout << "(" << k << "," << l << ")" << endl;
-            cout << Amat[k][l] << endl;
+            // cout << "(" << k << "," << l << ")" << endl;
+            // cout << Amat[k][l] << endl;
         }
     }
-    cout << "AmatDiagonalBlock : " << endl;
+    // cout << "Atmp : " << endl;
+    // cout << Atmp << endl;
+    // cout << "AmatDiagonalBlock : " << endl;
     for(long k = 0; k < nbatching; k++)
     {
         AmatDiagonalBlock[k] = new Mat<RR>[nbatching];
         for(long l = 0; l < nbatching; l++)
         {
             AmatDiagonalBlock[k][l] = Amat[l][(l + k) % nbatching];
-            cout << "(" << k << "," << l << ")" << endl;
-            cout << AmatDiagonalBlock[k][l] << endl;
+            // cout << "(" << k << "," << l << ")" << endl;
+            // cout << AmatDiagonalBlock[k][l] << endl;
         }
     }
-    cout << "Bmat : " << endl;
+    // cout << "Bmat : " << endl;
+    // Mat<RR> Btmp;
+    // Btmp.SetDims(Brows, Bcols);
     for(long k = 0; k < nbatching; ++k)
     {
         Bmat[k].SetDims(nrows, ncols);
@@ -1623,12 +1629,14 @@ void TestHEmatrix::testSIMDMult_Huang(long Arows, long Acols, long Brows, long B
             for(long j = 0; j < ncols; j++)
             {
                 Bmat[k][i][j] = to_RR(((2 * i * ncols + j + k) % 3 / 1.0));
+                //Btmp[k * nbatching + i][j] = to_RR(((2 * i * ncols + j + k) % 3 / 1.0));
             }
         }
-        cout << k << " : " << endl;
-        cout << Bmat[k] << endl;
+        // cout << k << " : " << endl;
+        // cout << Bmat[k] << endl;
     }
-
+    // cout << "Btmp : " << endl;
+    // cout << Btmp << endl;
 
     /* 0th diagonal multiply vector */
     Ciphertext Actxt_0;
@@ -1636,7 +1644,7 @@ void TestHEmatrix::testSIMDMult_Huang(long Arows, long Acols, long Brows, long B
 
     Ciphertext Bctxt;
     HEmatrix.encryptParallelRmat(Bctxt, Bmat, HEmatpar.pBits, nbatching);
-    
+
     ZZX** Initpoly;
     HEmatrix.genMultPoly_Parallel_Huang(Initpoly, 0);
 
@@ -1648,11 +1656,10 @@ void TestHEmatrix::testSIMDMult_Huang(long Arows, long Acols, long Brows, long B
 
     for(long l = 1; l < nbatching; ++l)
     {
-
         /*---------------------------------------*/
         //  Rotation
         /*---------------------------------------*/
-        scheme.leftRotateAndEqual(Bctxt, l);
+        Ciphertext Bctxt_tmp = scheme.leftRotate(Bctxt, l);
 
         /*---------------------------------------*/
         //  Encryption
@@ -1670,8 +1677,9 @@ void TestHEmatrix::testSIMDMult_Huang(long Arows, long Acols, long Brows, long B
         /*---------------------------------------*/
         //  Mult
         /*---------------------------------------*/
+        
         Ciphertext Cctxt;
-        HEmatrix.HEmatmul_Parallel_Huang(Cctxt, Actxt, Bctxt, Initpoly, shiftpoly);
+        HEmatrix.HEmatmul_Parallel_Huang(Cctxt, Actxt, Bctxt_tmp, Initpoly, shiftpoly);
         scheme.addAndEqual(res, Cctxt);
     }
     /*---------------------------------------*/
